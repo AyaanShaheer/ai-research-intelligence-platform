@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_BASE_URL = '/api';
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://ai-research-intelligence-platform.onrender.com'  // Update with your Railway URL
+  : '/api';
 
 // Configure axios
 const api = axios.create({
