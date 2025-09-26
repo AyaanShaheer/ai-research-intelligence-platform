@@ -4,6 +4,7 @@ uvicorn[standard]
 pydantic
 pydantic-settings
 
+
 # LangChain & LangGraph (Updated for compatibility)
 langchain
 langgraph
@@ -37,4 +38,4 @@ flake8
 gunicorn
 
 #CORS for frontend
-python-multipart==0.0.6
+python-multipart
