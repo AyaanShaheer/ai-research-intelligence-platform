@@ -2,8 +2,7 @@
 
 **The Future of Academic Research & Knowledge Discovery**
 
-[![Live Demo](https://img.shields.
-[![Backend API](https://img.shields.io/badge/🛠%20API%20Docs-Swagger-green?style=for-thense-MIT-yellow.svg?style=for-the-Vision Statement**
+Live Demo: https://ai-research-intelligence-platform.vercel.app/
 
 Revolutionizing academic research through **Multi-Agent AI Intelligence** that transforms how researchers discover, analyze, and synthesize knowledge from millions of research papers worldwide.
 
@@ -286,3 +285,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 [8](https://www.figma.com/resource-library/pitch-deck-examples/)
 [9](https://fi.co/pitch-deck)
 [10](https://www.storydoc.com/pitch-deck-creator)
+
