@@ -7,10 +7,12 @@ const API_BASE_URL = process.env.NODE_ENV === 'production'
 // Configure axios
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 60000, // 60 seconds for research operations
+  timeout: 120000, // 2 minutes for research operations
   headers: {
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
   },
+  withCredentials: false  
 });
 
 // Request interceptor
@@ -36,6 +38,41 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Enhanced error handling
+api.interceptors.response.use(
+  (response) => {
+    console.log(`✅ API Success: ${response.status} ${response.config.url}`);
+    return response;
+  },
+  (error) => {
+    if (error.response) {
+      console.error(`❌ API Error: ${error.response.status} ${error.response.config.url}`);
+      console.error('Response data:', error.response.data);
+    } else if (error.request) {
+      console.error('❌ Network Error: No response received');
+      console.error('Request:', error.request);
+    } else {
+      console.error('❌ Request Error:', error.message);
+    }
+    return Promise.reject(error);
+  }
+);
+
+
+
+// Test endpoint
+export const testAPI = {
+  async testConnection(): Promise<any> {
+    try {
+      const response = await api.get('/test');
+      return response.data;
+    } catch (error) {
+      console.error('Test connection failed:', error);
+      throw error;
+    }
+  }
+};
 
 // API Types
 export interface ResearchQuery {

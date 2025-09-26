@@ -36,12 +36,15 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:5173", 
-        "https://your-app-name.vercel.app",  # Update with your Vercel URL
-        "https://*.vercel.app"
+        "https://ai-research-intelligence-platform.vercel.app",
+        "https://*.vercel.app",
+        "https://vercel.app",
+        "*" #Temporary remove after testing
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 # Initialize services
@@ -208,6 +211,20 @@ async def system_status():
     except Exception as e:
         logger.error(f"System status error: {e}")
         return {"system_status": "degraded", "error": str(e)}
+
+
+#Added preflight handler
+@app.options("/{path:path}")
+async def options_handler(path: str):
+    return {"message": "OK"}
+
+@app.get("/test")
+async def test_endpoints():
+    return {
+        "status": "working",
+        "message": "Backend is accessible",
+        "timestamp": "2025-09-26 20:40"
+    }
 
 # Production startup event
 @app.on_event("startup")
