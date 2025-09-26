@@ -1,0 +1,40 @@
+# Core Framework
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+
+# LangChain & LangGraph (Updated for compatibility)
+langchain
+langgraph
+langchain-openai
+langchain-community
+langsmith
+langchain-core
+
+# ArXiv Integration
+arxiv
+
+# Data Processing
+pandas
+numpy
+
+# Vector Store
+sentence-transformers
+
+# Environment & Configuration
+python-dotenv
+
+# Testing
+pytest
+pytest-asyncio
+
+# Development
+black
+flake8
+
+#Production server
+gunicorn
+
+#CORS for frontend
+python-multipart==0.0.6
