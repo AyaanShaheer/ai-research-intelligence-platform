@@ -27,15 +27,58 @@ const Header: React.FC = () => {
   ];
 
   return (
-    <AppBar position="sticky" elevation={0} sx={{ backgroundColor: 'rgba(19, 47, 76, 0.8)', backdropFilter: 'blur(20px)' }}>
+    <AppBar position="sticky" elevation={0} sx={{ backgroundColor: 'rgba(19, 47, 76, 0.95)', backdropFilter: 'blur(20px)' }}>
       <Container maxWidth="xl">
         <Toolbar disableGutters>
-          {/* Logo & Title */}
-          <Box display="flex" alignItems="center" sx={{ flexGrow: 0 }}>
-            <Psychology sx={{ mr: 1, fontSize: '2rem', color: 'primary.main' }} />
-            <Typography variant="h6" component="div" sx={{ fontWeight: 700, letterSpacing: '0.5px' }}>
-              AI Research Assistant
-            </Typography>
+          {/* Logo & Brand */}
+          <Box display="flex" alignItems="center" sx={{ flexGrow: 0, mr: 4 }}>
+            {/* CITEON Logo */}
+            <Box 
+              component="img" 
+              src="/images/citeon-logo.png" 
+              alt="CITEON Logo"
+              sx={{ 
+                height: '40px', 
+                width: '40px', 
+                mr: 2,
+                cursor: 'pointer',
+                '&:hover': {
+                  transform: 'scale(1.05)',
+                  transition: 'transform 0.2s ease'
+                }
+              }}
+              onClick={() => navigate('/')}
+            />
+            <Box>
+              <Typography 
+                variant="h6" 
+                component="div" 
+                sx={{ 
+                  fontWeight: 700, 
+                  letterSpacing: '0.5px',
+                  background: 'linear-gradient(45deg, #FFFFFF 30%, #64B5F6 90%)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  color: 'transparent',
+                  fontSize: '1.3rem'
+                }}
+              >
+                CITEON
+              </Typography>
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  color: 'rgba(255,255,255,0.7)',
+                  fontSize: '0.7rem',
+                  fontWeight: 500,
+                  display: 'block',
+                  lineHeight: 0.8,
+                  mt: -0.5
+                }}
+              >
+                CITE ASK TRUST
+              </Typography>
+            </Box>
             <Chip
               label="Multi-Agent"
               size="small"
