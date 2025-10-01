@@ -110,44 +110,46 @@ class ChatService:
             logger.error(f"Error sending message: {str(e)}")
             raise
     
-    async def _generate_intelligent_response(self, query: str, relevant_chunks: List[Dict[str, Any]]) -> tuple:
-        """Generate intelligent AI response based on relevant document chunks"""
-        try:
-            if not relevant_chunks:
-                return self._generate_no_context_response(query), []
-            
-            # Extract and clean content from chunks
-            sources = []
-            clean_contents = []
-            
-            for i, chunk in enumerate(relevant_chunks):
-                # Clean the content - remove email artifacts and metadata noise
-                content = self._clean_chunk_content(chunk['content'])
-                
-                if content and len(content.strip()) > 20:  # Only meaningful content
-                    clean_contents.append(content)
-                    
-                    # Create source reference
-                    sources.append({
-                        'chunk_id': chunk['id'],
-                        'document_id': chunk['document_id'],
-                        'similarity_score': chunk.get('similarity_score', 0.0),
-                        'chunk_index': chunk.get('chunk_index', 0),
-                        'content_preview': content[:200] + "..." if len(content) > 200 else content
-                    })
-            
-            if not clean_contents:
-                return self._generate_no_context_response(query), []
-            
-            # Generate response based on clean content
-            response = self._generate_contextual_response(query, clean_contents)
-            
-            return response, sources
-            
-        except Exception as e:
-            logger.error(f"Error generating intelligent response: {str(e)}")
-            return f"I encountered an error while processing your question: {str(e)}", []
-    
+    async def _generate_intelligent_response(self, query: str, relevant_chunks: list) -> tuple:
+        if not relevant_chunks:
+            return self._generate_no_context_response(query), []
+        
+        #Combine retrieved chunks as context
+        docs = [chunk['content'] for chunk in relevant_chunks]
+        context = "\n\n".join(docs)[:3500] #Limit context for token safety
+
+        system_prompt = (
+            "You are a research assistant. Only use the provided CONTEXT to answer questions. " 
+            "If the answer is not directly in the CONTEXT, reply: 'This document does not contain that information.'"
+        )
+        messages = [
+        {"role": "system", "content": f"{system_prompt}\n\nCONTEXT:\n{context}"},
+        {"role": "user", "content": query}
+    ]
+        #openai call 
+        import asyncio
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: openai.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=messages,
+                max_tokens=512,
+                temperature=0.2
+            )
+        )
+
+        answer = result.choices[0].message.content
+        sources = [{
+        "chunk_id": chunk.get("id", ""),
+        "document_id": chunk.get("document_id", ""),
+        "similarity_score": chunk.get("similarity_score", 0),
+        "chunk_index": chunk.get("chunk_index", 0),
+        "content_preview": chunk["content"][:120]
+        } for chunk in relevant_chunks]
+
+        return answer, sources
+
     def _clean_chunk_content(self, content: str) -> str:
         """Clean chunk content to remove noise and artifacts"""
         if not content:
