@@ -5,23 +5,33 @@ pydantic
 pydantic-settings
 
 
-# LangChain & LangGraph (Updated for compatibility)
+# AI & LangChain & LangGraph (Updated for compatibility)
 langchain
 langgraph
 langchain-openai
 langchain-community
 langsmith
 langchain-core
-
+openai
 # ArXiv Integration
 arxiv
+requests
 
 # Data Processing
 pandas
 numpy
 
-# Vector Store
+# Vector Store & RAG
+pypdf2
+Langchain-chroma
+chromadb
 sentence-transformers
+
+# File Processing
+python-docx
+python-magic
+pillow
+
 
 # Environment & Configuration
 python-dotenv
@@ -29,6 +39,7 @@ python-dotenv
 # Testing
 pytest
 pytest-asyncio
+python-decouple
 
 # Development
 black
@@ -39,3 +50,12 @@ gunicorn
 
 #CORS for frontend
 python-multipart
+
+#Async & Performance
+aiohttp
+asyncio-throttle
+python-multipart
+
+# Utilities
+python-dateutil==2.8.2
+uuid

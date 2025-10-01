@@ -13,6 +13,7 @@ import {
   Search,
   Assessment,
   Settings,
+  Description,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -20,11 +21,14 @@ const Header: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const navItems = [
-    { label: 'Dashboard', path: '/', icon: <Assessment /> },
-    { label: 'Research', path: '/research', icon: <Search /> },
-    { label: 'System', path: '/system', icon: <Settings /> },
-  ];
+  // In your Header component, add the new navigation item
+const navItems = [
+  { label: 'Dashboard', path: '/', icon: <Assessment /> },
+  { label: 'Research', path: '/research', icon: <Search /> },
+  { label: 'Documents', path: '/documents', icon: <Description /> }, // Add this line
+  { label: 'System', path: '/system', icon: <Settings /> },
+];
+
 
   return (
     <AppBar position="sticky" elevation={0} sx={{ backgroundColor: 'rgba(19, 47, 76, 0.95)', backdropFilter: 'blur(20px)' }}>

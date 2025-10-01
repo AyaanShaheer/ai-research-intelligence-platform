@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CiteOn AI Document Upload Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .upload-area { 
+            border: 2px dashed #ccc; 
+            padding: 20px; 
+            text-align: center; 
+            margin: 20px 0; 
+        }
+        input[type="file"] { margin: 10px 0; }
+        button { 
+            background: #007bff; 
+            color: white; 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+        }
+        .result { 
+            margin: 20px 0; 
+            padding: 10px; 
+            border-radius: 4px; 
+            background: #f8f9fa; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 CiteOn AI Document Upload Test</h1>
+        
+        <div class="upload-area">
+            <p>Select a document to upload (PDF, DOCX, TXT, MD)</p>
+            <input type="file" id="fileInput" accept=".pdf,.docx,.txt,.md">
+            <br>
+            <input type="text" id="description" placeholder="Optional description" style="width: 300px; margin: 10px;">
+            <br>
+            <button onclick="uploadFile()">Upload Document</button>
+        </div>
+        
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const description = document.getElementById('description').value;
+            const resultDiv = document.getElementById('result');
+            
+            if (!fileInput.files[0]) {
+                alert('Please select a file first!');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            if (description) {
+                formData.append('description', description);
+            }
+
+            try {
+                resultDiv.innerHTML = '<p>⏳ Uploading and processing...</p>';
+                resultDiv.style.display = 'block';
+
+                const response = await fetch('http://localhost:8000/documents/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <h3>✅ Success!</h3>
+                        <p><strong>Document ID:</strong> ${result.document.id}</p>
+                        <p><strong>Status:</strong> ${result.processing_status}</p>
+                        <p><strong>File Size:</strong> ${(result.document.file_size / 1024).toFixed(2)} KB</p>
+                        <p><strong>Chunks Created:</strong> ${result.document.chunks_count}</p>
+                        <p><strong>Processing Time:</strong> ${result.document.processing_time}s</p>
+                        <p><strong>Word Count:</strong> ${result.document.metadata.word_count}</p>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<h3>❌ Error:</h3><pre>${JSON.stringify(result, null, 2)}</pre>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<h3>❌ Network Error:</h3><p>${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

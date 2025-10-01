@@ -1,275 +1,331 @@
-import os
-import pickle
 import logging
-from typing import List, Optional, Tuple, Dict, Any
-from pathlib import Path
-
+from typing import List, Dict, Any, Optional
 import numpy as np
-from langchain_community.vectorstores import FAISS
-from langchain_core.documents import Document
-from langchain_huggingface import HuggingFaceEmbeddings
-from sentence_transformers import SentenceTransformer
-
-from ..models.schemas import ArxivPaper, DocumentChunk, VectorSearchResult
+from datetime import datetime
+import uuid
+import re
 
 logger = logging.getLogger(__name__)
 
 class VectorStoreService:
-    """FAISS-based vector store service for semantic search"""
+    """Enhanced in-memory vector store with improved retrieval for RAG"""
     
-    def __init__(self, 
-                 model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
-                 index_path: str = "data/faiss_index",
-                 chunk_size: int = 512,
-                 chunk_overlap: int = 50):
-        """Initialize vector store service"""
-        self.model_name = model_name
-        self.index_path = Path(index_path)
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
+    def __init__(self):
+        # In-memory storage
+        self.document_chunks = {}  # document_id -> List[chunk_data]
+        self.chunk_vectors = {}    # chunk_id -> vector embedding
+        self.all_chunks = []       # Flat list of all chunks for search
         
-        # Initialize embeddings model
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name=model_name,
-            model_kwargs={'device': 'cpu'},
-            encode_kwargs={'normalize_embeddings': True}
-        )
-        
-        # Initialize sentence transformer for direct embedding
-        self.sentence_model = SentenceTransformer(model_name)
-        
-        # Initialize or load FAISS index
-        self.vector_store = None
-        self.paper_metadata = {}  # Store paper metadata separately
-        self._ensure_index_directory()
-        self._load_or_create_index()
+        logger.info("Vector Store Service initialized (in-memory) with enhanced retrieval")
     
-    def _ensure_index_directory(self):
-        """Ensure index directory exists"""
-        self.index_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    def _load_or_create_index(self):
-        """Load existing FAISS index or create new one"""
+    async def store_document_chunks(self, document_id: str, chunks: List[Dict[str, Any]]) -> bool:
+        """Store document chunks with embeddings"""
         try:
-            if self.index_path.exists():
-                logger.info(f"Loading existing FAISS index from {self.index_path}")
-                self.vector_store = FAISS.load_local(
-                    str(self.index_path), 
-                    self.embeddings,
-                    allow_dangerous_deserialization=True
-                )
-                self._load_metadata()
-            else:
-                logger.info("Creating new FAISS index")
-                # Create empty index with sample document
-                sample_doc = Document(page_content="initialization", metadata={"type": "init"})
-                self.vector_store = FAISS.from_documents([sample_doc], self.embeddings)
-                
-        except Exception as e:
-            logger.error(f"Error loading/creating FAISS index: {e}")
-            # Fallback to empty index
-            sample_doc = Document(page_content="initialization", metadata={"type": "init"})
-            self.vector_store = FAISS.from_documents([sample_doc], self.embeddings)
-    
-    def _save_metadata(self):
-        """Save paper metadata to disk"""
-        metadata_path = self.index_path.parent / "paper_metadata.pkl"
-        with open(metadata_path, 'wb') as f:
-            pickle.dump(self.paper_metadata, f)
-    
-    def _load_metadata(self):
-        """Load paper metadata from disk"""
-        metadata_path = self.index_path.parent / "paper_metadata.pkl"
-        if metadata_path.exists():
-            with open(metadata_path, 'rb') as f:
-                self.paper_metadata = pickle.load(f)
-        else:
-            self.paper_metadata = {}
-    
-    def chunk_paper_content(self, paper: ArxivPaper) -> List[DocumentChunk]:
-        """Split paper content into chunks for vector storage"""
-        chunks = []
-        
-        # Combine title and abstract for chunking
-        full_content = f"Title: {paper.title}\n\nAbstract: {paper.abstract}"
-        
-        # Simple text chunking (can be enhanced with more sophisticated methods)
-        content_length = len(full_content)
-        start = 0
-        chunk_index = 0
-        
-        while start < content_length:
-            end = min(start + self.chunk_size, content_length)
-            chunk_content = full_content[start:end]
+            if not chunks:
+                logger.warning(f"No chunks to store for document {document_id}")
+                return False
             
-            # Create document chunk
-            chunk = DocumentChunk(
-                chunk_id=DocumentChunk.create_chunk_id(paper.id, chunk_index),
-                paper_id=paper.id,
-                content=chunk_content,
-                metadata={
-                    "title": paper.title,
-                    "authors": paper.authors,
-                    "categories": paper.categories,
-                    "published": paper.published.isoformat(),
-                    "pdf_url": paper.pdf_url
-                },
-                chunk_index=chunk_index
-            )
-            chunks.append(chunk)
+            stored_chunks = []
             
-            # Move to next chunk with overlap
-            start = end - self.chunk_overlap
-            chunk_index += 1
-            
-            # Prevent infinite loop
-            if start >= end:
-                break
-        
-        logger.info(f"Created {len(chunks)} chunks for paper {paper.id}")
-        return chunks
-    
-    async def add_papers_to_index(self, papers: List[ArxivPaper]) -> int:
-        """Add papers to the vector index"""
-        documents_to_add = []
-        papers_added = 0
-        
-        for paper in papers:
-            # Skip if paper already indexed
-            if paper.id in self.paper_metadata:
-                logger.info(f"Paper {paper.id} already in index, skipping")
-                continue
-            
-            # Create chunks for the paper
-            chunks = self.chunk_paper_content(paper)
-            
-            # Convert chunks to LangChain documents
             for chunk in chunks:
-                doc = Document(
-                    page_content=chunk.content,
-                    metadata={
-                        "chunk_id": chunk.chunk_id,
-                        "paper_id": chunk.paper_id,
-                        "chunk_index": chunk.chunk_index,
-                        **chunk.metadata
-                    }
-                )
-                documents_to_add.append(doc)
+                chunk_id = str(uuid.uuid4())
+                
+                # Create simple embedding from content
+                embedding = self._create_simple_embedding(chunk['content'])
+                
+                chunk_data = {
+                    'id': chunk_id,
+                    'document_id': document_id,
+                    'content': chunk['content'],
+                    'chunk_index': chunk.get('chunk_index', 0),
+                    'metadata': chunk.get('metadata', {}),
+                    'embedding': embedding,
+                    'created_at': datetime.now().isoformat(),
+                    'content_length': len(chunk['content']),
+                    'word_count': len(chunk['content'].split())
+                }
+                
+                stored_chunks.append(chunk_data)
+                self.chunk_vectors[chunk_id] = embedding
+                self.all_chunks.append(chunk_data)
             
-            # Store paper metadata
-            self.paper_metadata[paper.id] = paper.model_dump()
-            papers_added += 1
-        
-        if documents_to_add:
-            # Add documents to FAISS index
-            if len(self.vector_store.docstore._dict) == 1:
-                # Replace initialization document
-                self.vector_store = FAISS.from_documents(documents_to_add, self.embeddings)
+            # Store by document ID
+            if document_id in self.document_chunks:
+                self.document_chunks[document_id].extend(stored_chunks)
             else:
-                # Add to existing index
-                self.vector_store.add_documents(documents_to_add)
+                self.document_chunks[document_id] = stored_chunks
             
-            # Save index and metadata
-            self._save_index()
-            self._save_metadata()
+            logger.info(f"Stored {len(stored_chunks)} chunks for document {document_id}")
+            return True
             
-            logger.info(f"Added {papers_added} papers ({len(documents_to_add)} chunks) to vector index")
-        
-        return papers_added
+        except Exception as e:
+            logger.error(f"Error storing document chunks: {str(e)}")
+            return False
     
-    async def semantic_search(self, 
-                            query: str, 
-                            k: int = 5, 
-                            similarity_threshold: float = 0.5) -> List[VectorSearchResult]:
-        """Perform semantic search using vector similarity"""
+    async def search_similar_chunks(self, query: str, document_ids: Optional[List[str]] = None,
+                                   limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        Search for similar chunks using ENHANCED retrieval strategy:
+        1. Keyword matching (exact/partial text match)
+        2. Semantic similarity (embedding-based)
+        3. Hybrid scoring combining both approaches
+        """
         try:
-            if not self.vector_store or len(self.vector_store.docstore._dict) <= 1:
-                logger.warning("Vector store is empty or not initialized")
+            # Preprocess query for better matching
+            processed_query = self._preprocess_query(query)
+            
+            logger.info(f"Searching for: '{query}' (processed: '{processed_query}')")
+            
+            # Filter chunks by document IDs if provided
+            searchable_chunks = []
+            if document_ids:
+                for doc_id in document_ids:
+                    if doc_id in self.document_chunks:
+                        searchable_chunks.extend(self.document_chunks[doc_id])
+            else:
+                searchable_chunks = self.all_chunks.copy()
+            
+            if not searchable_chunks:
+                logger.warning(f"No chunks available to search")
                 return []
             
-            # Perform similarity search with scores
-            docs_and_scores = self.vector_store.similarity_search_with_score(
-                query, k=k
-            )
+            logger.info(f"Searching through {len(searchable_chunks)} chunks")
             
-            results = []
-            for doc, score in docs_and_scores:
-                # Convert distance to similarity score (FAISS uses L2 distance)
-                similarity_score = max(0.0, 1.0 - score / 2.0)  # Normalize distance
-                
-                if similarity_score < similarity_threshold:
-                    continue
-                
-                # Get paper metadata
-                paper_id = doc.metadata.get("paper_id")
-                if paper_id and paper_id in self.paper_metadata:
-                    paper_data = self.paper_metadata[paper_id]
-                    paper = ArxivPaper(**paper_data)
-                    
-                    # Create document chunk
-                    chunk = DocumentChunk(
-                        chunk_id=doc.metadata.get("chunk_id", "unknown"),
-                        paper_id=paper_id,
-                        content=doc.page_content,
-                        metadata=doc.metadata,
-                        chunk_index=doc.metadata.get("chunk_index", 0)
-                    )
-                    
-                    # Generate relevance reason
-                    relevance_reason = self._generate_relevance_reason(query, doc.page_content)
-                    
-                    result = VectorSearchResult(
-                        paper=paper,
-                        chunk=chunk,
-                        similarity_score=similarity_score,
-                        relevance_reason=relevance_reason
-                    )
-                    results.append(result)
+            # Create query embedding
+            query_embedding = self._create_simple_embedding(processed_query)
             
-            logger.info(f"Found {len(results)} relevant results for query: {query}")
-            return results
+            # Score all chunks using HYBRID approach
+            scored_chunks = []
+            for chunk in searchable_chunks:
+                # 1. Semantic similarity score (embedding-based)
+                semantic_score = self._cosine_similarity(
+                    query_embedding,
+                    chunk['embedding']
+                )
+                
+                # 2. Keyword matching score (text-based)
+                keyword_score = self._keyword_match_score(
+                    processed_query,
+                    chunk['content']
+                )
+                
+                # 3. BM25-style term frequency score
+                tf_score = self._term_frequency_score(
+                    processed_query,
+                    chunk['content']
+                )
+                
+                # 4. Combine scores with weights (hybrid approach)
+                # Give MORE weight to keyword matching for better accuracy
+                final_score = (
+                    0.3 * semantic_score +    # Semantic similarity
+                    0.5 * keyword_score +      # Keyword matching (highest weight)
+                    0.2 * tf_score            # Term frequency
+                )
+                
+                scored_chunks.append({
+                    'chunk': chunk,
+                    'score': final_score,
+                    'semantic_score': semantic_score,
+                    'keyword_score': keyword_score,
+                    'tf_score': tf_score
+                })
+            
+            # Sort by combined score
+            scored_chunks.sort(key=lambda x: x['score'], reverse=True)
+            
+            # Apply ADAPTIVE threshold based on top scores
+            if scored_chunks:
+                top_score = scored_chunks[0]['score']
+                # Use 40% of top score as threshold (more lenient)
+                adaptive_threshold = max(0.2, top_score * 0.4)
+                
+                logger.info(f"Top score: {top_score:.3f}, Adaptive threshold: {adaptive_threshold:.3f}")
+                
+                # Filter and return top results
+                results = []
+                for item in scored_chunks[:limit]:
+                    if item['score'] >= adaptive_threshold:
+                        chunk = item['chunk']
+                        results.append({
+                            'id': chunk['id'],
+                            'document_id': chunk['document_id'],
+                            'content': chunk['content'],
+                            'chunk_index': chunk['chunk_index'],
+                            'similarity_score': float(item['score']),
+                            'semantic_score': float(item['semantic_score']),
+                            'keyword_score': float(item['keyword_score']),
+                            'metadata': chunk.get('metadata', {})
+                        })
+                
+                logger.info(f"Found {len(results)} chunks above threshold from top {limit}")
+                
+                # Debug: Show top 3 scores
+                for i, item in enumerate(scored_chunks[:3]):
+                    logger.info(f"  Chunk {i+1}: score={item['score']:.3f} "
+                              f"(sem={item['semantic_score']:.3f}, "
+                              f"kw={item['keyword_score']:.3f}, "
+                              f"tf={item['tf_score']:.3f})")
+                
+                return results
+            
+            return []
             
         except Exception as e:
-            logger.error(f"Error in semantic search: {str(e)}")
+            logger.error(f"Error searching chunks: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
             return []
     
-    def _generate_relevance_reason(self, query: str, content: str) -> str:
-        """Generate explanation for why content is relevant"""
-        # Simple keyword matching for relevance explanation
-        query_words = set(query.lower().split())
-        content_words = set(content.lower().split())
-        common_words = query_words.intersection(content_words)
+    def _preprocess_query(self, query: str) -> str:
+        """Preprocess query for better matching"""
+        # Remove common filler words
+        filler_words = ['please', 'can you', 'could you', 'tell me', 'about', 'the', 'this', 'that']
+        processed = query.lower()
         
-        if common_words:
-            return f"Contains relevant terms: {', '.join(list(common_words)[:5])}"
-        else:
-            return "Semantically related content based on vector similarity"
+        for filler in filler_words:
+            processed = processed.replace(filler, ' ')
+        
+        # Clean up whitespace
+        processed = ' '.join(processed.split())
+        
+        return processed if processed else query.lower()
     
-    def _save_index(self):
-        """Save FAISS index to disk"""
-        try:
-            self.vector_store.save_local(str(self.index_path))
-            logger.info(f"Saved FAISS index to {self.index_path}")
-        except Exception as e:
-            logger.error(f"Error saving FAISS index: {str(e)}")
+    def _keyword_match_score(self, query: str, content: str) -> float:
+        """Calculate keyword matching score"""
+        query_lower = query.lower()
+        content_lower = content.lower()
+        
+        # Extract keywords (words longer than 3 chars)
+        query_words = set([w for w in re.findall(r'\w+', query_lower) if len(w) > 3])
+        content_words = set([w for w in re.findall(r'\w+', content_lower) if len(w) > 3])
+        
+        if not query_words:
+            return 0.0
+        
+        # Calculate overlap
+        matching_words = query_words & content_words
+        score = len(matching_words) / len(query_words)
+        
+        # Bonus for phrase matching
+        if query_lower in content_lower:
+            score += 0.5
+        
+        # Normalize to 0-1 range
+        return min(1.0, score)
     
-    def get_index_stats(self) -> Dict[str, Any]:
-        """Get statistics about the vector index"""
-        if not self.vector_store:
-            return {"status": "not_initialized"}
+    def _term_frequency_score(self, query: str, content: str) -> float:
+        """Calculate term frequency score (simplified BM25)"""
+        query_lower = query.lower()
+        content_lower = content.lower()
+        
+        query_words = [w for w in re.findall(r'\w+', query_lower) if len(w) > 3]
+        
+        if not query_words:
+            return 0.0
+        
+        # Count occurrences of each query word
+        total_score = 0.0
+        for word in query_words:
+            count = content_lower.count(word)
+            if count > 0:
+                # TF score with diminishing returns
+                tf = count / (count + 1)
+                total_score += tf
+        
+        # Normalize by number of query words
+        return min(1.0, total_score / len(query_words))
+    
+    def _create_simple_embedding(self, text: str) -> np.ndarray:
+        """Create simple embedding using character and word statistics"""
+        if not text:
+            return np.zeros(100)
+        
+        text_lower = text.lower()
+        
+        # Character-based features (26 dimensions for a-z)
+        char_freq = np.zeros(26)
+        for char in text_lower:
+            if 'a' <= char <= 'z':
+                char_freq[ord(char) - ord('a')] += 1
+        
+        # Normalize character frequencies
+        if char_freq.sum() > 0:
+            char_freq = char_freq / char_freq.sum()
+        
+        # Word-based features
+        words = re.findall(r'\w+', text_lower)
+        word_features = np.array([
+            len(words),                           # Word count
+            len(text),                            # Character count
+            np.mean([len(w) for w in words]) if words else 0,  # Avg word length
+            len(set(words)) / max(len(words), 1), # Vocabulary diversity
+        ])
+        
+        # Technical term indicators (presence of important keywords)
+        tech_terms = [
+            'model', 'method', 'result', 'data', 'algorithm', 'approach',
+            'system', 'network', 'learning', 'training', 'performance',
+            'transformer', 'attention', 'embedding', 'layer', 'architecture'
+        ]
+        tech_features = np.array([
+            1.0 if term in text_lower else 0.0 for term in tech_terms[:20]
+        ])
+        
+        # Bigram features (common word pairs)
+        common_bigrams = [
+            'neural network', 'machine learning', 'deep learning', 'attention mechanism',
+            'sequence to', 'state of', 'we propose', 'our model', 'shows that',
+            'based on', 'compared to', 'results show'
+        ]
+        bigram_features = np.array([
+            1.0 if bigram in text_lower else 0.0 for bigram in common_bigrams[:30]
+        ])
+        
+        # Combine all features (26 + 4 + 20 + 30 = 80 dimensions, pad to 100)
+        embedding = np.concatenate([
+            char_freq,          # 26 dims
+            word_features,      # 4 dims
+            tech_features,      # 20 dims
+            bigram_features,    # 30 dims
+        ])
+        
+        # Pad to 100 dimensions
+        if len(embedding) < 100:
+            embedding = np.pad(embedding, (0, 100 - len(embedding)))
+        
+        # Normalize
+        norm = np.linalg.norm(embedding)
+        if norm > 0:
+            embedding = embedding / norm
+        
+        return embedding
+    
+    def _cosine_similarity(self, vec1: np.ndarray, vec2: np.ndarray) -> float:
+        """Calculate cosine similarity between two vectors"""
+        dot_product = np.dot(vec1, vec2)
+        norm1 = np.linalg.norm(vec1)
+        norm2 = np.linalg.norm(vec2)
+        
+        if norm1 == 0 or norm2 == 0:
+            return 0.0
+        
+        similarity = dot_product / (norm1 * norm2)
+        
+        # Ensure in [0, 1] range
+        return max(0.0, min(1.0, (similarity + 1) / 2))
+    
+    async def get_document_chunks(self, document_id: str) -> List[Dict[str, Any]]:
+        """Get all chunks for a document"""
+        return self.document_chunks.get(document_id, [])
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get vector store statistics"""
+        total_chunks = sum(len(chunks) for chunks in self.document_chunks.values())
         
         return {
-            "total_documents": len(self.vector_store.docstore._dict),
-            "total_papers": len(self.paper_metadata),
-            "embedding_model": self.model_name,
-            "index_path": str(self.index_path)
+            'total_documents': len(self.document_chunks),
+            'total_chunks': total_chunks,
+            'total_vectors': len(self.chunk_vectors),
+            'avg_chunks_per_document': total_chunks / max(len(self.document_chunks), 1)
         }
-    
-    async def clear_index(self):
-        """Clear the vector index (for testing/reset)"""
-        sample_doc = Document(page_content="initialization", metadata={"type": "init"})
-        self.vector_store = FAISS.from_documents([sample_doc], self.embeddings)
-        self.paper_metadata = {}
-        self._save_index()
-        self._save_metadata()
-        logger.info("Cleared vector index")

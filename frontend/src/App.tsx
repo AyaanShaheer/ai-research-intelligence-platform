@@ -5,6 +5,7 @@ import { CssBaseline, Container } from '@mui/material';
 import Header from './components/Header';
 import Dashboard from './pages/Dashboard';
 import ResearchPage from './pages/ResearchPage';
+import DocumentAnalysis from './pages/DocumentAnalysis';
 import SystemStatus from './pages/SystemStatus';
 
 // Create modern dark theme
@@ -51,6 +52,24 @@ const theme = createTheme({
   shape: {
     borderRadius: 12,
   },
+  components: {
+    // Add global component styles
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundImage: 'none',
+        },
+      },
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+          borderRadius: 8,
+        },
+      },
+    },
+  },
 });
 
 const App: React.FC = () => {
@@ -58,13 +77,19 @@ const App: React.FC = () => {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
-        <div style={{ minHeight: '100vh', backgroundColor: theme.palette.background.default }}>
+        <div style={{ 
+          minHeight: '100vh', 
+          backgroundColor: theme.palette.background.default 
+        }}>
           <Header />
           <Container maxWidth="xl" sx={{ py: 4 }}>
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/research" element={<ResearchPage />} />
+              <Route path="/documents" element={<DocumentAnalysis />} />
               <Route path="/system" element={<SystemStatus />} />
+              {/* Add a fallback route */}
+              <Route path="*" element={<Dashboard />} />
             </Routes>
           </Container>
         </div>

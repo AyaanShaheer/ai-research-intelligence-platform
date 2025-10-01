@@ -1,27 +1,22 @@
+import os
+from typing import Optional
 from pydantic_settings import BaseSettings
-from typing import Optional, List
 
 class Settings(BaseSettings):
-    """Application configuration"""
+    """Application settings"""
     
     # API Configuration
-    openai_api_key: str
-    openai_model: str = "gpt-4o-mini"
+    openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
+    debug: bool = os.getenv("DEBUG", "false").lower() == "true"
     
     # ArXiv Configuration
-    arxiv_max_results: int = 10
-    arxiv_max_query_length: int = 300
+    arxiv_max_results: int = 20
+    arxiv_max_query_length: int = 500
     
-    # Application Configuration
-    app_name: str = "Research Assistant"
-    debug: bool = False
-    host: str = "0.0.0.0"
-    port: int = 8000
-    
-    # Logging
-    log_level: str = "INFO"
+    # OpenAI Configuration  
+    openai_model: str = "gpt-4o-mini"
     
     class Config:
-        env_file = ".env"
+        case_sensitive = False
 
 settings = Settings()
