@@ -4,9 +4,12 @@ from datetime import datetime
 import uuid
 import asyncio
 import re
+import openai
+import os 
 
 from .vector_store_service import VectorStoreService
 
+openai.api_key = os.getenv("OPENAI_API_KEY")
 logger = logging.getLogger(__name__)
 
 class ChatService:
