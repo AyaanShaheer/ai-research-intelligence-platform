@@ -1,12 +1,14 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline, Container } from '@mui/material';
+import CitationGenerator from './pages/CitationGenerator';
+import React from 'react';
 import Header from './components/Header';
 import Dashboard from './pages/Dashboard';
 import ResearchPage from './pages/ResearchPage';
 import DocumentAnalysis from './pages/DocumentAnalysis';
 import SystemStatus from './pages/SystemStatus';
+
 
 // Create modern dark theme
 const theme = createTheme({
@@ -88,6 +90,7 @@ const App: React.FC = () => {
               <Route path="/research" element={<ResearchPage />} />
               <Route path="/documents" element={<DocumentAnalysis />} />
               <Route path="/system" element={<SystemStatus />} />
+              <Route path="/citations" element={<CitationGenerator />} />
               {/* Add a fallback route */}
               <Route path="*" element={<Dashboard />} />
             </Routes>

@@ -23,6 +23,9 @@ from .models.chat_models import ChatQuery, StartChatRequest
 from .services.document_processor import DocumentProcessor
 from .services.vector_store_service import VectorStoreService
 from .services.chat_service import ChatService
+from .services.citation_service import CitationService
+from .services.citation_ai_service import CitationAIService
+from .routes import citation_routes
 
 # ─────────────────── logging config ──────────────────────
 logging.basicConfig(
@@ -36,6 +39,8 @@ pipeline: Optional[EnhancedMultiAgentPipeline] = None
 document_processor: Optional[DocumentProcessor] = None
 vector_store: Optional[VectorStoreService] = None
 chat_service: Optional[ChatService] = None
+citation_service: Optional[CitationService] = None
+citation_ai_service: Optional[CitationAIService] = None
 
 app_metrics = {
     "startup_time": datetime.now(),
@@ -47,7 +52,7 @@ app_metrics = {
 # ─────────────────── FastAPI lifespan ────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global pipeline, document_processor, vector_store, chat_service
+    global pipeline, document_processor, vector_store, chat_service, citation_service, citation_ai_service
 
     logger.info("🚀 Starting CiteOn AI Platform...")
     try:
@@ -55,11 +60,19 @@ async def lifespan(app: FastAPI):
         document_processor = DocumentProcessor()
         vector_store = VectorStoreService()
         chat_service = ChatService(vector_store)
+        citation_service = CitationService()
+        citation_ai_service = CitationAIService(gemini_api_key=settings.gemini_api_key)
 
         health = await pipeline.get_system_health()
         logger.info(f"Platform health: {health['system_status']}")
 
-        logger.info("✅ Services ready: pipeline • docs • vectors • chat")
+        # Log API key status
+        if settings.gemini_api_key:
+            logger.info(f"✅ Gemini API Key loaded: {settings.gemini_api_key[:20]}...")
+        else:
+            logger.warning("⚠️  Gemini API Key not configured - AI citations will not work")
+
+        logger.info("✅ Services ready: pipeline • docs • vectors • chat • citations")
         yield
     finally:
         logger.info("🛑 Shutting down CiteOn AI Platform")
@@ -70,7 +83,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="CiteOn AI Research Intelligence Platform",
     version="2.0.0",
-    description="Enterprise-grade multi-agent research & RAG document system",
+    description="Enterprise-grade multi-agent research & RAG document system with AI-powered citation generator",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
@@ -133,6 +146,7 @@ async def root():
         "status": "running",
         "uptime_seconds": uptime,
         "version": "2.0.0",
+        "features": ["research", "documents", "chat", "citations"]
     }
 
 @app.get("/health")
@@ -150,7 +164,9 @@ async def system_status():
                 "pipeline": "ready" if pipeline else "not_initialized",
                 "document_processor": "ready" if document_processor else "not_initialized", 
                 "vector_store": "ready" if vector_store else "not_initialized",
-                "chat_service": "ready" if chat_service else "not_initialized"
+                "chat_service": "ready" if chat_service else "not_initialized",
+                "citation_service": "ready" if citation_service else "not_initialized",
+                "citation_ai_service": "ready" if citation_ai_service else "not_initialized"
             },
             "uptime_seconds": (datetime.now() - app_metrics["startup_time"]).total_seconds(),
             "requests_processed": app_metrics["total_requests"]
@@ -186,7 +202,7 @@ async def research(
     )
     return result
 
-# ─────────────────── FIXED document upload ─────────────────────
+# ─────────────────── document upload ─────────────────────
 @app.post("/documents/upload", response_model=DocumentResponse)
 async def upload_document(
     bg: BackgroundTasks,
@@ -196,7 +212,6 @@ async def upload_document(
     store: VectorStoreService = Depends(require_vector_store),
 ):
     try:
-        # Type / size checks
         ftype = proc.validate_file_type(file.filename)
         if not ftype:
             raise HTTPException(400, "Unsupported file type")
@@ -207,29 +222,22 @@ async def upload_document(
 
         logger.info(f"📤 Processing document upload: {file.filename}")
         
-        # Process document
         doc = await proc.process_uploaded_file(data, file.filename, ftype, description)
         
-        # IMMEDIATE chunk storage - this fixes the issue!
         if doc.status.value == "completed":
             try:
                 logger.info(f"🔄 Immediately storing chunks for document {doc.id}")
-                
-                # Get chunks from document processor
                 chunks = await proc.get_document_chunks(doc.id)
                 logger.info(f"📝 Retrieved {len(chunks)} chunks from processor")
                 
                 if chunks:
-                    # Store in vector database immediately
                     success = await store.store_document_chunks(doc.id, chunks)
                     if success:
                         logger.info(f"✅ Successfully stored {len(chunks)} chunks in vector store")
                     else:
                         logger.error(f"❌ Failed to store chunks in vector store")
-                        
                 else:
                     logger.warning(f"⚠️  No chunks retrieved for document {doc.id}")
-                    
             except Exception as storage_error:
                 logger.error(f"❌ Immediate chunk storage failed: {str(storage_error)}")
                 logger.error(f"📍 Storage error traceback: {traceback.format_exc()}")
@@ -249,85 +257,6 @@ async def upload_document(
         logger.error(f"Upload error: {str(e)}")
         logger.error(f"Upload error traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
-
-# ─────────────────── debug endpoints ──────────────────────
-@app.post("/debug/fix-document/{document_id}")
-async def debug_fix_document(
-    document_id: str,
-    proc: DocumentProcessor = Depends(require_doc_processor),
-    store: VectorStoreService = Depends(require_vector_store)
-):
-    """Debug endpoint to manually fix chunk storage for a document"""
-    try:
-        logger.info(f"🔧 Debug: Fixing document {document_id}")
-        
-        # Get chunks from processor
-        chunks = await proc.get_document_chunks(document_id)
-        logger.info(f"📝 Debug: Retrieved {len(chunks)} chunks")
-        
-        if chunks:
-            # Show chunk preview
-            first_chunk = chunks[0]
-            logger.info(f"📖 Debug: First chunk preview: {first_chunk['content'][:200]}...")
-            
-            # Store in vector database
-            success = await store.store_document_chunks(document_id, chunks)
-            
-            if success:
-                logger.info(f"✅ Debug: Successfully stored {len(chunks)} chunks")
-                return {
-                    "success": True,
-                    "document_id": document_id,
-                    "chunks_stored": len(chunks),
-                    "first_chunk_preview": first_chunk['content'][:200] + "...",
-                    "message": "Document fixed successfully"
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": "Failed to store in vector database"
-                }
-        else:
-            return {
-                "success": False,
-                "error": "No chunks found in document processor"
-            }
-            
-    except Exception as e:
-        logger.error(f"❌ Debug fix error: {str(e)}")
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
-@app.get("/debug/documents/{document_id}/chunks")
-async def debug_document_chunks(
-    document_id: str,
-    store: VectorStoreService = Depends(require_vector_store)
-):
-    """Debug endpoint to check document chunks"""
-    chunks = await store.get_document_chunks(document_id)
-    stats = store.get_stats()
-    
-    return {
-        "document_id": document_id,
-        "chunks_found": len(chunks),
-        "chunks": chunks[:3],  # Show first 3 chunks
-        "vector_store_stats": stats
-    }
-
-@app.get("/debug/chat/sessions")
-async def debug_chat_sessions(
-    chat: ChatService = Depends(require_chat_service)
-):
-    """Debug endpoint to check chat sessions"""
-    sessions = await chat.get_chat_sessions()
-    stats = chat.get_stats()
-    
-    return {
-        "sessions": sessions,
-        "chat_stats": stats
-    }
 
 # ─────────────────── chat endpoints ──────────────────────
 @app.post("/chat/start")
@@ -373,6 +302,10 @@ async def chat_history(
     except Exception as e:
         logger.error(f"Chat history error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# ─────────────────── INCLUDE CITATION ROUTES ──────────────────────
+app.include_router(citation_routes.router, prefix="/api")
+logger.info("✅ Citation routes registered at /api/citations")
 
 # ─────────────────── error handlers ──────────────────────
 @app.exception_handler(HTTPException)

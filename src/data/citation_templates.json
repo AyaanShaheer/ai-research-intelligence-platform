@@ -1,0 +1,108 @@
+{
+  "apa_7": {
+    "journal_article": {
+      "template": "{authors} ({year}). {title}. {journal}, {volume}({issue}), {pages}. {doi}",
+      "in_text": "({author_last}, {year})",
+      "required": ["authors", "year", "title", "journal", "volume", "pages"],
+      "formatting": {
+        "title": "sentence_case",
+        "journal": "title_case_italic",
+        "authors": "last_first_initials"
+      }
+    },
+    "book": {
+      "template": "{authors} ({year}). {title} ({edition}). {publisher}. {doi}",
+      "in_text": "({author_last}, {year})",
+      "required": ["authors", "year", "title", "publisher"],
+      "formatting": {
+        "title": "title_case_italic",
+        "authors": "last_first_initials"
+      }
+    },
+    "website": {
+      "template": "{authors} ({year}, {month} {day}). {title}. {site_name}. {url}",
+      "in_text": "({author_last}, {year})",
+      "required": ["title", "url"],
+      "formatting": {
+        "title": "sentence_case"
+      }
+    }
+  },
+  "mla_9": {
+    "journal_article": {
+      "template": "{authors}. \"{title}.\" {journal}, vol. {volume}, no. {issue}, {year}, pp. {pages}. {doi}",
+      "in_text": "({author_last} {page})",
+      "required": ["authors", "title", "journal", "year", "pages"],
+      "formatting": {
+        "title": "title_case",
+        "journal": "italic",
+        "authors": "last_first_full"
+      }
+    },
+    "book": {
+      "template": "{authors}. {title}. {publisher}, {year}.",
+      "in_text": "({author_last} {page})",
+      "required": ["authors", "title", "publisher", "year"],
+      "formatting": {
+        "title": "italic",
+        "authors": "last_first_full"
+      }
+    },
+    "website": {
+      "template": "{authors}. \"{title}.\" {site_name}, {day} {month} {year}, {url}. Accessed {access_date}.",
+      "in_text": "({author_last})",
+      "required": ["title", "url"],
+      "formatting": {
+        "title": "title_case"
+      }
+    }
+  },
+  "chicago_17": {
+    "journal_article": {
+      "template": "{authors}. \"{title}.\" {journal} {volume}, no. {issue} ({year}): {pages}. {doi}",
+      "in_text": "({author_last} {year}, {page})",
+      "required": ["authors", "year", "title", "journal", "volume", "pages"],
+      "formatting": {
+        "title": "title_case",
+        "journal": "italic",
+        "authors": "last_first_full"
+      }
+    }
+  },
+  "ieee": {
+    "journal_article": {
+      "template": "{authors}, \"{title},\" {journal}, vol. {volume}, no. {issue}, pp. {pages}, {month} {year}. {doi}",
+      "in_text": "[{number}]",
+      "required": ["authors", "title", "journal", "year"],
+      "formatting": {
+        "title": "title_case",
+        "journal": "italic",
+        "authors": "initials_last"
+      }
+    }
+  },
+  "harvard": {
+    "journal_article": {
+      "template": "{authors} ({year}) '{title}', {journal}, {volume}({issue}), pp. {pages}. doi: {doi}",
+      "in_text": "({author_last} {year})",
+      "required": ["authors", "year", "title", "journal"],
+      "formatting": {
+        "title": "sentence_case",
+        "journal": "italic",
+        "authors": "last_initials"
+      }
+    }
+  },
+  "vancouver": {
+    "journal_article": {
+      "template": "{authors}. {title}. {journal}. {year};{volume}({issue}):{pages}. doi:{doi}",
+      "in_text": "({number})",
+      "required": ["authors", "title", "journal", "year"],
+      "formatting": {
+        "authors": "initials_last",
+        "title": "sentence_case",
+        "journal": "abbreviated"
+      }
+    }
+  }
+}

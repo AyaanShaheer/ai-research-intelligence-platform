@@ -20,6 +20,8 @@ import {
   CheckCircle,
   Schedule,
   AutoAwesome,
+  FormatQuote,
+  Description,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { researchAPI, SystemStatus } from '../services/api';
@@ -234,18 +236,26 @@ const Dashboard: React.FC = () => {
             Start Research
           </Button>
           <Button
+            variant="contained"
+            startIcon={<FormatQuote />}
+            onClick={() => navigate('/citations')}
+            sx={{ background: 'linear-gradient(45deg, #9C27B0 30%, #E91E63 90%)' }}
+          >
+            Generate Citations
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<Description />}
+            onClick={() => navigate('/documents')}
+          >
+            Manage Documents
+          </Button>
+          <Button
             variant="outlined"
             startIcon={<Assessment />}
             onClick={() => navigate('/system')}
           >
             System Status
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<Science />}
-            disabled
-          >
-            Export Results
           </Button>
         </Box>
       </Paper>

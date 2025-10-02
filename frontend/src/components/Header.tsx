@@ -1,3 +1,4 @@
+import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 import React from 'react';
 import {
   AppBar,
@@ -21,14 +22,14 @@ const Header: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // In your Header component, add the new navigation item
-const navItems = [
-  { label: 'Dashboard', path: '/', icon: <Assessment /> },
-  { label: 'Research', path: '/research', icon: <Search /> },
-  { label: 'Documents', path: '/documents', icon: <Description /> }, // Add this line
-  { label: 'System', path: '/system', icon: <Settings /> },
-];
-
+  // Navigation items with Citations added
+  const navItems = [
+    { label: 'Dashboard', path: '/', icon: <Assessment /> },
+    { label: 'Research', path: '/research', icon: <Search /> },
+    { label: 'Documents', path: '/documents', icon: <Description /> },
+    { label: 'Citations', path: '/citations', icon: <FormatQuoteIcon /> }, // ✅ ADDED
+    { label: 'System', path: '/system', icon: <Settings /> },
+  ];
 
   return (
     <AppBar position="sticky" elevation={0} sx={{ backgroundColor: 'rgba(19, 47, 76, 0.95)', backdropFilter: 'blur(20px)' }}>
